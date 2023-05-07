@@ -1,1 +1,72 @@
+import numpy as np
+import pandas as pd
 
+data = pd.read_csv('/Users/nvalsankulangareth/SYNCED/Bootstrap/output_V2H_merged.csv')
+data = pd.DataFrame(data)
+print(data.outcome.value_counts())
+
+data_c = pd.read_csv('/Users/nvalsankulangareth/SYNCED/Bootstrap/p0001_bootstrap')
+col_names = list(data_c['0'])
+keep_cols = [col for col in data.columns if col in col_names]
+data_c_reduced_col = data[keep_cols]
+
+last_col_name = data.columns[-1]
+last_col = data[last_col_name]
+
+data_c_reduced_col = pd.concat([data_c_reduced_col, last_col], axis=1)
+data_c_reduced_col
+
+
+Nboot = 100
+import random
+
+dfs=pd.DataFrame()
+bootstrap_samples = pd.DataFrame(columns=data_c_reduced_col.columns)
+# Perform the bootstrap
+for i in range(Nboot):
+    # Sample rows from the original DataFrame with replacement
+    bootstrap_rows = np.random.choice(data_c_reduced_col.index, size=len(data_c_reduced_col.index), replace=True)
+    
+    # Create a bootstrap sample by selecting rows based on the sampled indices
+    bootstrap_sample = data_c_reduced_col.loc[bootstrap_rows]
+    
+        # Concatenate the bootstrap sample to the DataFrame of bootstrap samples
+       # bootstrap_samples = pd.concat([bootstrap_samples, bootstrap_sample])
+
+    bootstrap_sample = pd.DataFrame(bootstrap_sample)
+    #Manwhitney for bootstrap
+    bootstrap_sample = bootstrap_sample.iloc[:,0:]
+    bootstrap_sample = pd.DataFrame(bootstrap_sample)
+    #print(bootstrap_sample.shape)
+    bootstrap_sample_1 = bootstrap_sample.loc[bootstrap_sample['outcome']== 'N']
+    #print(bootstrap_sample_1.shape)
+    bootstrap_sample_2 = bootstrap_sample.loc[bootstrap_sample['outcome']== 'Y']
+    #print(bootstrap_sample_2.shape)
+    bootstrap_sample_3 = bootstrap_sample.loc[bootstrap_sample['outcome']== 'X']
+    #print(bootstrap_sample_3.shape)
+    
+    from scipy.stats import mannwhitneyu
+    list_bs=[]
+    for feat in range(0,len(bootstrap_sample_1.columns)-1):
+        test_a = pd.DataFrame(bootstrap_sample_1.iloc[:,feat])
+        test_b = pd.DataFrame(bootstrap_sample_2.iloc[:,feat])
+        print(i,feat)
+        list_bs.append((mannwhitneyu(bootstrap_sample_1.iloc[:,feat], bootstrap_sample_2.iloc[:,feat])))
+        list_MWP = pd.DataFrame(list_bs).pvalue
+    dfs= pd.concat([dfs,list_MWP],axis = 1)
+   # print(list_MWP)
+dfs
+dfs['mean']=dfs.mean(axis=1)
+dfs
+dfs['features']=data_c_reduced_col.iloc[:,:-1].columns
+dfs
+Man_WHi_P_sorted_boot = dfs.sort_values('mean',ascending = True)
+Man_WHi_P_sorted_boot
+P_lesser_0001 = Man_WHi_P_sorted_boot.loc[(Man_WHi_P_sorted_boot['mean']<0.0001)]
+P_lesser_001 = Man_WHi_P_sorted_boot.loc[(Man_WHi_P_sorted_boot['mean']>0.0001) & (Man_WHi_P_sorted_boot['mean']<0.001)]
+P_lesser_005 = Man_WHi_P_sorted_boot.loc[(Man_WHi_P_sorted_boot['mean']>0.001) & (Man_WHi_P_sorted_boot['mean']<0.005)]
+P_lesser_01 = Man_WHi_P_sorted_boot.loc[(Man_WHi_P_sorted_boot['mean']>0.005) & (Man_WHi_P_sorted_boot['mean']<0.01)]
+P_lesser_05 = Man_WHi_P_sorted_boot.loc[(Man_WHi_P_sorted_boot['mean']>0.01) & (Man_WHi_P_sorted_boot['mean']<0.05)]
+P_greater_05 = Man_WHi_P_sorted_boot.loc[(Man_WHi_P_sorted_boot['mean']>0.05) ]
+
+print(P_lesser_0001.shape, P_lesser_001.shape, P_lesser_005.shape, P_lesser_01.shape, P_lesser_05.shape, P_greater_05.shape)
